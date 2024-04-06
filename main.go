@@ -2,33 +2,27 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"strings"
+
+	// "regexp"
+
+	"github.com/wenzapen/crawler/collect"
 )
 
+// var headerRe = regexp.MustCompile(`<li class="\w*?" style="height.*?"><a target="_blank" href="/newsDetail_forward_\d{8}?" class="index_inherit__A1ImK">(.*?)</a></li>`)
+
 func main() {
-	url := "https://www.thepaper.cn"
-	resp, err := http.Get(url)
+	// url := "https://www.thepaper.cn"
+	url := "https://book.douban.com/subject/1007305/"
+	// var bf collect.Fetcher = collect.BaseFetch{}
+	var bf collect.BrowserFetch = collect.BrowserFetch{}
+	resp, err := bf.Get(url)
 	if err != nil {
-		fmt.Printf("fetch url %v failed", url)
+		fmt.Printf("read content failed %v", err)
 		return
 	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("error status code %v", resp.StatusCode)
-		// return
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-
-	if err != nil {
-		fmt.Printf("read content failed: %v", err)
-		return
-	}
-
-	numLinks := strings.Count(string(body), "<a")
-	fmt.Printf("home page has %d links\n", numLinks)
+	fmt.Println(string(resp))
+	// matches := headerRe.FindAllSubmatch(resp, -1)
+	// for _, m := range matches {
+	// 	fmt.Println("fetch card news:", string(m[1]))
+	// }
 }
