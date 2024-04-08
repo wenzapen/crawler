@@ -1,6 +1,6 @@
 module github.com/wenzapen/crawler
 
-go 1.22.1
+go 1.18
 
 require (
 	github.com/chromedp/chromedp v0.9.5

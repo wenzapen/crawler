@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
+
+	"github.com/wenzapen/crawler/proxy"
 
 	"golang.org/x/net/html/charset"
 	"golang.org/x/text/encoding"
@@ -13,16 +16,16 @@ import (
 )
 
 type Fetcher interface {
-	Get(url string) ([]byte, error)
+	Get(url *Request) ([]byte, error)
 }
 
 type BaseFetch struct {
 }
 
-func (b BaseFetch) Get(url string) ([]byte, error) {
-	resp, err := http.Get(url)
+func (b BaseFetch) Get(req *Request) ([]byte, error) {
+	resp, err := http.Get(req.Url)
 	if err != nil {
-		fmt.Printf("fetch url %v failed", url)
+		fmt.Printf("fetch url %v failed", req.Url)
 		return nil, err
 	}
 
@@ -30,16 +33,8 @@ func (b BaseFetch) Get(url string) ([]byte, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		fmt.Printf("error status code %v", resp.StatusCode)
-		// return
+		return nil, err
 	}
-	// file, err := os.Create("output.txt")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// defer file.Close()
-	// if _, err := io.Copy(file, resp.Body); err != nil {
-	// 	panic(err)
-	// }
 
 	bodyReader := bufio.NewReader(resp.Body)
 
@@ -50,13 +45,26 @@ func (b BaseFetch) Get(url string) ([]byte, error) {
 }
 
 type BrowserFetch struct {
+	Timeout time.Duration
+	Proxy   proxy.ProxyFunc
 }
 
-func (BrowserFetch) Get(url string) ([]byte, error) {
-	cli := &http.Client{}
-	req, err := http.NewRequest("GET", url, nil)
+func (b BrowserFetch) Get(request *Request) ([]byte, error) {
+
+	cli := &http.Client{
+		Timeout: b.Timeout,
+	}
+	if b.Proxy != nil {
+		transport := http.DefaultTransport.(*http.Transport)
+		transport.Proxy = b.Proxy
+		cli.Transport = transport
+	}
+	req, err := http.NewRequest("GET", request.Url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get url failed:%v", err)
+	}
+	if len(request.Cookie) > 0 {
+		req.Header.Set("Cookie", request.Cookie)
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
 	resp, err := cli.Do(req)
