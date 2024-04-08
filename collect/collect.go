@@ -2,12 +2,14 @@ package collect
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
 
 	"github.com/wenzapen/crawler/proxy"
+	"go.uber.org/zap"
 
 	"golang.org/x/net/html/charset"
 	"golang.org/x/text/encoding"
@@ -47,10 +49,15 @@ func (b BaseFetch) Get(req *Request) ([]byte, error) {
 type BrowserFetch struct {
 	Timeout time.Duration
 	Proxy   proxy.ProxyFunc
+	Logger  *zap.Logger
 }
 
 func (b BrowserFetch) Get(request *Request) ([]byte, error) {
 
+	if request == nil {
+		b.Logger.Sugar().Error("invalid request")
+		return nil, errors.New("invalid request")
+	}
 	cli := &http.Client{
 		Timeout: b.Timeout,
 	}
@@ -59,6 +66,8 @@ func (b BrowserFetch) Get(request *Request) ([]byte, error) {
 		transport.Proxy = b.Proxy
 		cli.Transport = transport
 	}
+	// fmt.Println("url:", request.Url)
+	b.Logger.Info(request.Url)
 	req, err := http.NewRequest("GET", request.Url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get url failed:%v", err)
@@ -68,10 +77,15 @@ func (b BrowserFetch) Get(request *Request) ([]byte, error) {
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
 	resp, err := cli.Do(req)
+
+	time.Sleep(request.WaitTime)
+
 	if err != nil {
+		b.Logger.Error("fetch failed", zap.Error(err))
 		return nil, err
 	}
 	bodyReader := bufio.NewReader(resp.Body)
+	// bodyReader.ReadBytes()
 
 	e := DeterminEncoding(bodyReader)
 	utf8Reader := transform.NewReader(bodyReader, e.NewDecoder())
