@@ -3,7 +3,6 @@ package doubangroup
 import (
 	"fmt"
 	"regexp"
-	"time"
 
 	"github.com/wenzapen/crawler/collect"
 )
@@ -19,9 +18,10 @@ func ParseURL(content []byte, req *collect.Request) collect.ParseResult {
 		u := string(m[1])
 		fmt.Println("url: ", u)
 		result.Requests = append(result.Requests, &collect.Request{
-			Url:      u,
-			Cookie:   req.Cookie,
-			WaitTime: 3 * time.Second,
+			Method: "GET",
+			Url:    u,
+			Task:   req.Task,
+			Depth:  req.Depth + 1,
 			ParseFunction: func(c []byte, r *collect.Request) collect.ParseResult {
 				return GetContent(c, r)
 			},
