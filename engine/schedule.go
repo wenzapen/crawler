@@ -37,6 +37,10 @@ type Crawler struct {
 	options
 }
 
+func GetFields(taskName string, ruleName string) []string {
+	return Store.Hash[taskName].Rule.Trunk[ruleName].ItemFields
+}
+
 type Scheduler interface {
 	Schedule()
 	Push(...*spider.Request)
