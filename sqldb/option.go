@@ -7,7 +7,7 @@ type options struct {
 	sqlURL string
 }
 
-var defaultOptions = &options{
+var defaultOptions = options{
 	logger: zap.NewNop(),
 }
 
