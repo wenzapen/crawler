@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	// "github.com/chromedp/chromedp"
@@ -9,7 +8,6 @@ import (
 	"github.com/wenzapen/crawler/collect"
 	"github.com/wenzapen/crawler/engine"
 	"github.com/wenzapen/crawler/log"
-	"github.com/wenzapen/crawler/parse/doubangroup"
 	"github.com/wenzapen/crawler/proxy"
 
 	"go.uber.org/zap/zapcore"
@@ -35,22 +33,6 @@ func main() {
 		Timeout: 300 * time.Millisecond,
 		Logger:  logger,
 		Proxy:   p,
-	}
-
-	var seeds = make([]*collect.Task, 0, 1000)
-	for i := 0; i <= 100; i += 25 {
-		str := fmt.Sprintf("https://www.douban.com/group/szsh/discussion?start=%d,&type=new", i)
-		seeds = append(seeds, &collect.Task{
-			Url:      str,
-			Cookie:   cookie,
-			WaitTime: 3 * time.Second,
-			MaxDepth: 5,
-			Fetcher:  f,
-			RootReq: &collect.Request{
-				ParseFunction: doubangroup.ParseURL,
-				Method:        "GET",
-			},
-		})
 	}
 
 	s := engine.NewEngine(
