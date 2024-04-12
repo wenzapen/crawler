@@ -55,7 +55,7 @@ type Schedule struct {
 	Logger      *zap.Logger
 }
 
-func NewEngine(opts ...Option) *Crawler {
+func NewEngine(opts ...Option) (*Crawler, error) {
 	options := DefaultOptions
 	for _, opt := range opts {
 		opt(&options)
@@ -67,7 +67,7 @@ func NewEngine(opts ...Option) *Crawler {
 	e.failures = make(map[string]*spider.Request)
 	e.out = make(chan spider.ParseResult)
 
-	return e
+	return e, nil
 }
 
 func NewSchedule() *Schedule {

@@ -69,8 +69,8 @@ func (b BrowserFetch) Get(request *spider.Request) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get url failed:%v", err)
 	}
-	if len(request.Cookie) > 0 {
-		req.Header.Set("Cookie", request.Cookie)
+	if len(request.Task.Cookie) > 0 {
+		req.Header.Set("Cookie", request.Task.Cookie)
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
 	resp, err := cli.Do(req)
