@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/wenzapen/crawler/proxy"
+	"github.com/wenzapen/crawler/spider"
 	"go.uber.org/zap"
 
 	"golang.org/x/net/html/charset"
@@ -20,10 +21,10 @@ import (
 type BaseFetch struct {
 }
 
-func (b BaseFetch) Get(req *Request) ([]byte, error) {
-	resp, err := http.Get(req.Url)
+func (b BaseFetch) Get(req *spider.Request) ([]byte, error) {
+	resp, err := http.Get(req.URL)
 	if err != nil {
-		fmt.Printf("fetch url %v failed", req.Url)
+		fmt.Printf("fetch url %v failed", req.URL)
 		return nil, err
 	}
 
@@ -48,7 +49,7 @@ type BrowserFetch struct {
 	Logger  *zap.Logger
 }
 
-func (b BrowserFetch) Get(request *Request) ([]byte, error) {
+func (b BrowserFetch) Get(request *spider.Request) ([]byte, error) {
 
 	if request == nil {
 		b.Logger.Sugar().Error("invalid request")
@@ -63,8 +64,8 @@ func (b BrowserFetch) Get(request *Request) ([]byte, error) {
 		cli.Transport = transport
 	}
 	// fmt.Println("url:", request.Url)
-	b.Logger.Info(request.Url)
-	req, err := http.NewRequest("GET", request.Url, nil)
+	b.Logger.Info(request.URL)
+	req, err := http.NewRequest("GET", request.URL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get url failed:%v", err)
 	}
@@ -74,7 +75,7 @@ func (b BrowserFetch) Get(request *Request) ([]byte, error) {
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
 	resp, err := cli.Do(req)
 
-	time.Sleep(request.WaitTime)
+	time.Sleep(time.Duration(request.Task.WaitTime))
 
 	if err != nil {
 		b.Logger.Error("fetch failed", zap.Error(err))

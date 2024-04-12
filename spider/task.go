@@ -20,7 +20,7 @@ type TaskConfig struct {
 	Reload   bool
 	MaxDepth int64
 	Fetcher  string
-	Limit    []LimitConfig
+	Limits   []LimitConfig
 }
 
 type LimitConfig struct {
@@ -39,4 +39,14 @@ type Task struct {
 
 type Fetcher interface {
 	Get(url *Request) ([]byte, error)
+}
+
+func NewTask(opts ...Option) *Task {
+	options := defaultOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
+	t := &Task{}
+	t.Options = options
+	return t
 }
