@@ -167,6 +167,64 @@ func (m *Master) Campaign() {
 	go m.elect(e, leaderCh)
 	leaderChange := e.Observe(context.Background())
 
+	resp := <-leaderChange
+	m.logger.Info("watch leader change", zap.String("leader", string(resp.Kvs[0].Value)))
+	m.leaderID = string(resp.Kvs[0].Value)
+
+	workerNodeChange := m.WatchWorker()
+
+	for {
+		select {
+		case err := <-leaderCh:
+			if err != nil {
+				m.logger.Error("leader elect failed", zap.Error(err))
+				go m.elect()
+			} else {
+				m.logger.Info("start to become leader")
+				m.leaderID = m.ID
+				if !m.IsLeader() {
+					if err := m.BecomeLeader(); err != nil {
+						m.logger.Error("become leader failed", zap.Error(err))
+					}
+				}
+			}
+		case res := <-leaderChange:
+			if len(res.Kvs) > 0 {
+				m.logger.Info("leader change", zap.String("leader", string(res.Kvs[0].Value)))
+				m.leaderID = string(res.Kvs[0].Value)
+				if m.ID != m.leaderID {
+					atomic.StoreInt32(&m.ready, 0)
+				}
+			}
+
+		case res := <-workerNodeChange:
+			m.logger.Info("worker node change", zap.Any("res", res))
+			m.updateWorkNodes()
+			if err := m.loadResource(); err != nil {
+				m.logger.Error("load resource failed", zap.Error(err))
+			}
+			m.reAssign()
+
+		case <-time.After(20 * time.Second):
+			resp, err := e.Leader(context.Background())
+			if err != nil {
+				m.logger.Error("get leader failed", zap.Error(err))
+				if errors.Is(err, concurrency.ErrElectionNoLeader) {
+					go m.elect(e, leaderCh)
+
+				}
+			}
+			if resp != nil && len(resp.Kvs) > 0 {
+				m.logger.Debug("get leader", zap.String("value", string(resp.Kvs[0].Value)))
+				m.leaderID = string(resp.Kvs[0].Value)
+				if m.leaderID != m.ID {
+					atomic.StoreInt32(&m.ready, 0)
+				}
+			}
+		}
+
+	}
+
 }
 
 func (m *Master) elect(e *concurrency.Election, ch chan error) {
