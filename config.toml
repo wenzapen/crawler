@@ -22,3 +22,10 @@ RegisterTTL = 60
 RegisterInterval = 15
 ClientTimeOut   = 10
 Name = "go.micro.server.worker"
+
+[MasterServer]
+RegistryAddress = "192.168.0.105:2379"
+RegisterTTL = 60
+RegisterInterval = 15
+ClientTimeOut   = 10
+Name = "go.micro.server.master"

@@ -13,7 +13,7 @@ service CrawlerMaster {
     rpc DeleteResource(ResourceSpec) returns (google.protobuf.Empty) {
         option (google.api.http) = {
             delete:"/crawler/resource"
-            body:"*"
+
         };
     }
 }

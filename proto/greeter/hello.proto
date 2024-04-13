@@ -4,9 +4,9 @@ import "google/api/annotations.proto";
 
 service Greeter {
     rpc Hello(Request) returns (Response) {
-        option (goole.api.http) = {
-            post:"/greeter/hello"
-        };
+    option (google.api.http) = {
+        post:"/greeter/hello"
+    };
     }
 }
 
