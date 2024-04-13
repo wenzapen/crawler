@@ -3,8 +3,10 @@ package engine
 import (
 	"sync"
 
+	"github.com/wenzapen/crawler/master"
 	"github.com/wenzapen/crawler/parse/doubangroup"
 	"github.com/wenzapen/crawler/spider"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 )
 
@@ -28,12 +30,18 @@ func (c *CrawlerStore) Add(task *spider.Task) {
 }
 
 type Crawler struct {
+	id          string
 	out         chan spider.ParseResult
 	Visited     map[string]bool
 	VisitedLock sync.Mutex
 
 	failures    map[string]*spider.Request
 	failureLock sync.Mutex
+
+	resources map[string]*master.ResourceSpec
+	rlock     sync.Mutex
+
+	etcdCli *clientv3.Client
 	options
 }
 
@@ -66,6 +74,18 @@ func NewEngine(opts ...Option) (*Crawler, error) {
 	e.Visited = make(map[string]bool, 100)
 	e.failures = make(map[string]*spider.Request)
 	e.out = make(chan spider.ParseResult)
+
+	for _, task := range Store.list {
+		task.Fetcher = e.Fetcher
+		task.Storage = e.Storage
+	}
+
+	endpoints := []string{e.resitryURL}
+	cli, err := clientv3.New(clientv3.Config{Endpoints: endpoints})
+	if err != nil {
+		return nil, err
+	}
+	e.etcdCli = cli
 
 	return e, nil
 }
@@ -134,7 +154,11 @@ func (e *Crawler) Run() {
 func (e *Crawler) Schedule() {
 	reqs := []*spider.Request{}
 	for _, seed := range e.Seeds {
-		seed.RootReq.Task = seed
+		req, err := seed.Rule.Root()
+		if err != nil {
+			continue
+		}
+		req.Task = seed
 		seed.RootReq.Url = seed.Url
 		reqs = append(reqs, seed.RootReq)
 	}
@@ -223,4 +247,26 @@ func (c *Crawler) SetFailure(req *spider.Request) {
 		c.scheduler.Push(req)
 	}
 
+}
+
+func (c *Crawler) HandleSeeds() {
+	var reqs []*spider.Request
+	for _, task := range c.Seeds {
+		t, ok := Store.Hash[task.Name]
+		if !ok {
+			c.Logger.Error("cannot find predefined task", zap.String("task name", task.Name))
+			continue
+		}
+		task.Rule = t.Rule
+		rootReqs, err := task.Rule.Root()
+		if err != nil {
+			c.Logger.Error("get root failed", zap.Error(err))
+			continue
+		}
+		for _, req := range rootReqs {
+			req.Task = task
+		}
+		reqs = append(reqs, rootReqs...)
+	}
+	go c.scheduler.Push(reqs...)
 }
