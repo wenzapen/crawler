@@ -146,12 +146,18 @@ func (s *Schedule) Schedule() {
 	}
 }
 
-func (e *Crawler) Run() {
-	go e.Schedule()
-	for i := 0; i < e.WorkCount; i++ {
-		go e.CreateWorker()
+func (c *Crawler) Run(id string, cluster bool) {
+	c.id = id
+	if !cluster {
+		c.HandleSeeds()
 	}
-	e.HandleResult()
+	go c.loadResource()
+	go c.watchResources()
+	go c.Schedule()
+	for i := 0; i < c.WorkCount; i++ {
+		go c.CreateWorker()
+	}
+	c.HandleResult()
 }
 
 func (e *Crawler) Schedule() {

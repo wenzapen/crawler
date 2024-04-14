@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bwmarrin/snowflake"
 	"github.com/golang/protobuf/ptypes/empty"
 	"go-micro.dev/v4/client"
 	"go-micro.dev/v4/registry"
@@ -50,7 +51,7 @@ func (m *Master) SetForwardClient(cli proto.CrawlerMasterService) {
 }
 
 func (m *Master) DeleteResource(ctx context.Context, spec *proto.ResourceSpec, empty *empty.Empty) error {
-	if !m.isLeader() && m.leaderID != "" && m.leaderID != m.ID {
+	if !m.IsLeader() && m.leaderID != "" && m.leaderID != m.ID {
 		addr := getLeaderAddress(m.leaderID)
 		_, err := m.forwardCli.DeleteResource(ctx, spec, client.WithAddress(addr))
 		return err
@@ -75,10 +76,11 @@ func (m *Master) DeleteResource(ctx context.Context, spec *proto.ResourceSpec, e
 		if err != nil {
 			return err
 		}
+		if ns, ok := m.workNodes[nodeID]; ok {
+			ns.Workload--
+		}
 	}
-	if ns, ok := m.workNodes[nodeID]; ok {
-		ns.Playload--
-	}
+
 	return nil
 }
 
@@ -86,7 +88,7 @@ func (m *Master) AddResource(ctx context.Context, spec *proto.ResourceSpec, resp
 	if !m.IsLeader() && m.leaderID != "" && m.leaderID != m.ID {
 		addr := getLeaderAddress(m.leaderID)
 		nodeSpec, err := m.forwardCli.AddResource(ctx, spec, client.WithAddress(addr))
-		resp.ID = nodeSpec.ID
+		resp.Id = nodeSpec.Id
 		resp.Address = nodeSpec.Address
 		return err
 	}
@@ -94,7 +96,7 @@ func (m *Master) AddResource(ctx context.Context, spec *proto.ResourceSpec, resp
 	defer m.rlock.Unlock()
 	NodeSpec, err := m.addResource(&ResourceSpec{Name: spec.Name})
 	if NodeSpec != nil {
-		resp.ID = NodeSpec.Node.Id
+		resp.Id = NodeSpec.Node.Id
 		resp.Address = NodeSpec.Node.Address
 	}
 	return err
@@ -178,7 +180,7 @@ func (m *Master) Campaign() {
 		case err := <-leaderCh:
 			if err != nil {
 				m.logger.Error("leader elect failed", zap.Error(err))
-				go m.elect()
+				go m.elect(e, leaderCh)
 			} else {
 				m.logger.Info("start to become leader")
 				m.leaderID = m.ID
@@ -298,7 +300,7 @@ type Message struct {
 
 type NodeSpec struct {
 	Node     *registry.Node
-	Playload int
+	Workload int
 }
 
 type ResourceSpec struct {
@@ -343,7 +345,7 @@ func (m *Master) addResource(r *ResourceSpec) (*NodeSpec, error) {
 		return nil, err
 	}
 	m.resources[r.Name] = r
-	nd.Playload++
+	nd.Workload++
 	return nd, nil
 }
 
@@ -353,7 +355,7 @@ func (m *Master) Assign(r *ResourceSpec) (*NodeSpec, error) {
 		candidates = append(candidates, node)
 	}
 	sort.Slice(candidates, func(i, j int) bool {
-		return candidates[i].Playload < candidates[j].Playload
+		return candidates[i].Workload < candidates[j].Workload
 	})
 	if len(candidates) > 0 {
 		return candidates[0], nil
@@ -410,7 +412,7 @@ func (m *Master) loadResource() error {
 			}
 			node, ok := m.workNodes[id]
 			if ok {
-				node.Playload++
+				node.Workload++
 			}
 		}
 	}

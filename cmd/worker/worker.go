@@ -17,6 +17,7 @@ import (
 	"github.com/wenzapen/crawler/generator"
 	"github.com/wenzapen/crawler/limiter"
 	"github.com/wenzapen/crawler/log"
+	"github.com/wenzapen/crawler/proto/greeter"
 	"github.com/wenzapen/crawler/proxy"
 	"github.com/wenzapen/crawler/spider"
 	"github.com/wenzapen/crawler/storage/sqlstorage"
@@ -51,7 +52,7 @@ var WorkerCmd = &cobra.Command{
 func init() {
 	WorkerCmd.Flags().StringVar(&workerID, "id", "", "set worker id")
 	WorkerCmd.Flags().StringVar(&HTTPListenAddress, "http", "8080", "set http listen address")
-	WorkerCmd.Flags().StringVar(&GPRCListenAddress, "grpc", "9090", "set grpc listen address")
+	WorkerCmd.Flags().StringVar(&GRPCListenAddress, "grpc", "9090", "set grpc listen address")
 	WorkerCmd.Flags().StringVar(&PProfListenAddress, "pprof", "9981", "set pprof address")
 	WorkerCmd.Flags().StringVar(&podIP, "podip", "", "set pod ip address")
 	WorkerCmd.Flags().BoolVar(&cluster, "cluster", true, "run mode")
@@ -61,7 +62,7 @@ var cluster bool
 
 var workerID string
 var HTTPListenAddress string
-var GPRCListenAddress string
+var GRPCListenAddress string
 var PProfListenAddress string
 var podIP string
 
@@ -179,7 +180,7 @@ func RunGRPCServer(logger *zap.Logger, cfg ServerConfig) {
 		micro.Server(grpc.NewServer(
 			server.Id(workerID),
 		)),
-		micro.Address(GPRCListenAddress),
+		micro.Address(GRPCListenAddress),
 		micro.Registry(reg),
 		micro.RegisterTTL(time.Duration(cfg.RegisterTTL)*time.Second),
 		micro.RegisterInterval(time.Duration(cfg.RegisterInterval)*time.Second),
@@ -187,7 +188,7 @@ func RunGRPCServer(logger *zap.Logger, cfg ServerConfig) {
 		micro.Name(cfg.Name),
 	)
 
-	if err := service.Client().init(client.RequestTimeout(time.Duration(cfg.ClientTimeOut) * time.Second)); err != nil {
+	if err := service.Client().Init(client.RequestTimeout(time.Duration(cfg.ClientTimeout) * time.Second)); err != nil {
 		logger.Sugar().Error("micro client init error. ", zap.String("error:", err.Error()))
 
 		return
