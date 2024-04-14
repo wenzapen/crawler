@@ -1,6 +1,9 @@
 package engine
 
 import (
+	"context"
+	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/wenzapen/crawler/master"
@@ -152,18 +155,9 @@ func (e *Crawler) Run() {
 }
 
 func (e *Crawler) Schedule() {
-	reqs := []*spider.Request{}
-	for _, seed := range e.Seeds {
-		req, err := seed.Rule.Root()
-		if err != nil {
-			continue
-		}
-		req.Task = seed
-		seed.RootReq.Url = seed.Url
-		reqs = append(reqs, seed.RootReq)
-	}
-	go e.scheduler.Schedule()
-	go e.scheduler.Push(reqs...)
+
+	e.scheduler.Schedule()
+
 }
 
 func (e *Crawler) HandleResult() {
@@ -269,4 +263,113 @@ func (c *Crawler) HandleSeeds() {
 		reqs = append(reqs, rootReqs...)
 	}
 	go c.scheduler.Push(reqs...)
+}
+
+func (c *Crawler) watchResources() {
+	watch := c.etcdCli.Watch(context.Background(), master.RESOURCEPATH, clientv3.WithPrefix(), clientv3.WithSerializable())
+	for w := range watch {
+		if w.Err() != nil {
+			c.Logger.Error("watch resource failed", zap.Error(w.Err()))
+			continue
+		}
+		if w.Canceled {
+			c.Logger.Error("watch resource canceled")
+			return
+
+		}
+		for _, ev := range w.Events {
+			switch ev.Type {
+			case clientv3.EventTypePut:
+				spec, err := master.Decode(ev.Kv.Value)
+				if err != nil {
+					c.Logger.Error("decode etcd value failed", zap.Error(err))
+				}
+				if ev.IsCreate() {
+					c.Logger.Info("receive create resource", zap.Any("spec", spec))
+				} else if ev.IsModify() {
+					c.Logger.Info("receive update resource", zap.Any("spec", spec))
+				}
+
+				c.rlock.Lock()
+				c.runTask(spec.Name)
+				c.rlock.Unlock()
+
+			case clientv3.EventTypeDelete:
+				spec, err := master.Decode(ev.PrevKv.Value)
+				c.Logger.Info("receive delete resouce", zap.Any("spec", spec))
+				if err != nil {
+					c.Logger.Error("decode etcd value failed", zap.Error(err))
+				}
+				c.rlock.Lock()
+
+				c.deleteTask(spec.Name)
+				c.rlock.Unlock()
+			}
+		}
+	}
+}
+
+func getID(assignedNode string) string {
+	s := strings.Split(assignedNode, "|")
+	if len(s) < 2 {
+		return ""
+
+	}
+	return s[0]
+}
+
+func (c *Crawler) loadResource() error {
+	resp, err := c.etcdCli.Get(context.Background(), master.RESOURCEPATH, clientv3.WithPrefix(), clientv3.WithSerializable())
+	if err != nil {
+		return fmt.Errorf("etcd get failed")
+	}
+
+	resources := make(map[string]*master.ResourceSpec)
+	for _, kv := range resp.Kvs {
+		r, err := master.Decode(kv.Value)
+		if err == nil && r != nil {
+			id := getID(r.AssignedNode)
+			if len(id) > 0 && c.id == id {
+				resources[r.Name] = r
+			}
+		}
+
+	}
+	c.Logger.Info("lead init load resource ", zap.Int("length", len(resources)))
+	c.rlock.Lock()
+	defer c.rlock.Unlock()
+	c.resources = resources
+	for _, resource := range resources {
+		c.runTask(resource.Name)
+	}
+	return nil
+}
+
+func (c *Crawler) deleteTask(taskName string) {
+	t, ok := Store.Hash[taskName]
+	if !ok {
+		c.Logger.Info("cannot predefined task", zap.String("task name", taskName))
+		return
+	}
+	t.Closed = true
+	delete(c.resources, taskName)
+}
+
+func (c *Crawler) runTask(taskName string) {
+	t, ok := Store.Hash[taskName]
+	if !ok {
+		c.Logger.Info("cannot predefined task", zap.String("task name", taskName))
+		return
+	}
+	t.Closed = false
+	res, err := t.Rule.Root()
+	if err != nil {
+		c.Logger.Error("get root failed", zap.Error(err))
+		return
+	}
+	for _, req := range res {
+		req.Task = t
+	}
+	c.scheduler.Push(res...)
+
 }
