@@ -272,7 +272,7 @@ func (c *Crawler) HandleSeeds() {
 }
 
 func (c *Crawler) watchResources() {
-	watch := c.etcdCli.Watch(context.Background(), master.RESOURCEPATH, clientv3.WithPrefix(), clientv3.WithSerializable())
+	watch := c.etcdCli.Watch(context.Background(), master.RESOURCEPATH, clientv3.WithPrefix(), clientv3.WithPrevKV())
 	for w := range watch {
 		if w.Err() != nil {
 			c.Logger.Error("watch resource failed", zap.Error(w.Err()))

@@ -51,9 +51,9 @@ var WorkerCmd = &cobra.Command{
 
 func init() {
 	WorkerCmd.Flags().StringVar(&workerID, "id", "", "set worker id")
-	WorkerCmd.Flags().StringVar(&HTTPListenAddress, "http", "8080", "set http listen address")
-	WorkerCmd.Flags().StringVar(&GRPCListenAddress, "grpc", "9090", "set grpc listen address")
-	WorkerCmd.Flags().StringVar(&PProfListenAddress, "pprof", "9981", "set pprof address")
+	WorkerCmd.Flags().StringVar(&HTTPListenAddress, "http", ":8080", "set http listen address")
+	WorkerCmd.Flags().StringVar(&GRPCListenAddress, "grpc", ":9090", "set grpc listen address")
+	WorkerCmd.Flags().StringVar(&PProfListenAddress, "pprof", ":9981", "set pprof address")
 	WorkerCmd.Flags().StringVar(&podIP, "podip", "", "set pod ip address")
 	WorkerCmd.Flags().BoolVar(&cluster, "cluster", true, "run mode")
 }
