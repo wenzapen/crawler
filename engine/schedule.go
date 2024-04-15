@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/wenzapen/crawler/master"
+	"github.com/wenzapen/crawler/parse/doubanbook"
 	"github.com/wenzapen/crawler/parse/doubangroup"
 	"github.com/wenzapen/crawler/spider"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -20,6 +21,7 @@ var Store = &CrawlerStore{
 
 func init() {
 	Store.Add(doubangroup.DoubanGroupTask)
+	Store.Add(doubanbook.DoubanBookTask)
 }
 
 type CrawlerStore struct {
